@@ -1,0 +1,14 @@
+#!/bin/sh
+# Test double of QTS /sbin/setcfg: setcfg SECTION FIELD VALUE [-f FILE]
+sec=$1 key=$2 val=$3
+shift 3
+file=/etc/config/uLinux.conf
+[ "$1" = -f ] && file=$2
+touch "$file"
+awk -v s="[$sec]" -v k="$key" -v v="$val" '
+	/^\[/ { if (in_s && !done) { print k " = " v; done = 1 } in_s = ($0 == s); print; next }
+	in_s { i = index($0, "="); kk = substr($0, 1, i - 1); gsub(/^[ \t]+|[ \t]+$/, "", kk)
+		if (i > 0 && kk == k) { print k " = " v; done = 1; next } }
+	{ print }
+	END { if (!done) { if (!in_s) print s; print k " = " v } }
+' "$file" >"$file.tmp" && mv "$file.tmp" "$file"

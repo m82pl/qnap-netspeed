@@ -1,0 +1,3 @@
+#!/bin/sh
+# Test double of QTS /sbin/log_tool: records the call.
+echo "$*" >>/var/log/log_tool.log
