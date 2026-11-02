@@ -1,0 +1,11 @@
+iperf3 is distributed in this package as an unmodified, statically linked binary.
+
+Project:  iperf3 (ESnet)
+License:  BSD-3-Clause and bundled third-party notices (LICENSE)
+Source:   https://downloads.es.net/pub/iperf/iperf-3.22.tar.gz
+          https://github.com/esnet/iperf (tag 3.22)
+SHA-256:  1c0d0fb02c52626111d6e132db80edfbf27bbaff8bd9245df2a371dcb0b35a92
+
+Build:    Alpine Linux (musl), ./configure --enable-static-bin --disable-shared
+          --without-openssl --without-sctp (see scripts/iperf3-in-container.sh
+          in https://github.com/m82pl/qnap-netspeed)

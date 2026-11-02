@@ -1,0 +1,37 @@
+name: w1-capture
+
+# W1: prawdziwe wyjście librespeed-cli --json z przypiętej wersji (sukces, błędy).
+# Uruchamia się ręcznie oraz gdy zmienia się przypięta wersja lub sam proces przechwycenia.
+# Robi prawdziwy test prędkości do publicznego serwera LibreSpeed, więc nie przy każdym PR.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - third_party/versions.env
+      - scripts/build-librespeed-cli.sh
+      - scripts/w1-capture.sh
+      - .github/workflows/w1-capture.yml
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Load pinned versions
+        run: sh scripts/load-versions.sh >>"$GITHUB_ENV"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: Build librespeed-cli
+        run: sh scripts/build-librespeed-cli.sh amd64 out
+      - name: Capture
+        run: sh scripts/w1-capture.sh out/librespeed-cli captures
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: w1-librespeed-captures
+          path: captures/

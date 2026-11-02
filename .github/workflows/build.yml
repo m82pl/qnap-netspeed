@@ -1,0 +1,151 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Load pinned versions
+        run: sh scripts/load-versions.sh >>"$GITHUB_ENV"
+      - name: Check go.mod matches versions.env
+        run: |
+          gomod="$(sed -n 's/^go //p' go.mod)"
+          if [ "$gomod" != "$GO_VERSION" ]; then
+            echo "::error::go.mod has go $gomod, versions.env has GO_VERSION=$GO_VERSION"
+            exit 1
+          fi
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt needed:"; echo "$unformatted"; exit 1
+          fi
+      - name: go vet
+        run: go vet ./...
+      - name: go test
+        run: go test -race -count=1 ./...
+      - name: shellcheck (POSIX sh)
+        run: |
+          files="$(ls scripts/*.sh qpkg/shared/*.sh qpkg/package_routines 2>/dev/null || true)"
+          echo "$files"
+          # shellcheck disable=SC2086
+          shellcheck -s sh $files
+
+  binaries:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goarch: amd64
+            qpkg_arch: x86_64
+            elf_machine: X86-64
+            runner: ubuntu-24.04
+          - goarch: arm64
+            qpkg_arch: arm_64
+            elf_machine: AArch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Load pinned versions
+        run: sh scripts/load-versions.sh >>"$GITHUB_ENV"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Version string
+        run: |
+          case "$GITHUB_REF" in
+            refs/tags/v*) ver="${GITHUB_REF#refs/tags/v}" ;;
+            *) ver="0.0.0-dev+$(git rev-parse --short HEAD)" ;;
+          esac
+          echo "QNETSPEED_VERSION=$ver" >>"$GITHUB_ENV"
+      - name: Build qnetspeed
+        run: sh scripts/build-qnetspeed.sh "${{ matrix.goarch }}" out "$QNETSPEED_VERSION"
+      - name: Build librespeed-cli ${{ env.LIBRESPEED_CLI_VERSION }}
+        run: sh scripts/build-librespeed-cli.sh "${{ matrix.goarch }}" out
+      - name: Cache iperf3
+        id: iperf3-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: iperf3-cache
+          key: iperf3-${{ env.IPERF3_VERSION }}-${{ matrix.goarch }}-${{ hashFiles('third_party/versions.env', 'scripts/build-iperf3.sh', 'scripts/iperf3-in-container.sh') }}
+      - name: Build iperf3 ${{ env.IPERF3_VERSION }} (static, musl)
+        if: steps.iperf3-cache.outputs.cache-hit != 'true'
+        run: sh scripts/build-iperf3.sh iperf3-cache
+      - name: Collect iperf3
+        run: cp iperf3-cache/iperf3 out/iperf3
+      - name: Verify static binaries
+        run: sh scripts/verify-static.sh "${{ matrix.elf_machine }}" out/qnetspeed out/librespeed-cli out/iperf3
+      - name: Run --version (native ${{ matrix.goarch }})
+        run: |
+          out/qnetspeed version
+          out/librespeed-cli --version
+          out/iperf3 --version
+          ls -l out/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bin-${{ matrix.qpkg_arch }}
+          path: out/
+          if-no-files-found: error
+
+  # F0: szkielet. Składa drzewo wejściowe QDK z binariów i licencji.
+  # F1: instalacja QDK (apt-get install ./qdk_2.5.0_amd64.deb), qbuild, kontrola QPKG_VER,
+  # próg rozmiaru 70%, SHA256SUMS i dwa pliki .qpkg.
+  package:
+    needs: [test, binaries]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: bin-*
+          path: artifacts
+      - name: Assemble QDK input tree
+        run: |
+          set -eu
+          for arch in x86_64 arm_64; do
+            mkdir -p "qpkg/$arch/bin"
+            cp artifacts/bin-$arch/* "qpkg/$arch/bin/"
+            chmod 0755 qpkg/$arch/bin/*
+          done
+          mkdir -p qpkg/shared/licenses
+          cp -R third_party/licenses/. qpkg/shared/licenses/
+          cp LICENSE qpkg/shared/licenses/qnap-netspeed-LICENSE
+          find qpkg -type f | sort
+      - name: Smoke check
+        run: |
+          set -eu
+          for arch in x86_64 arm_64; do
+            for b in qnetspeed librespeed-cli iperf3; do
+              test -x "qpkg/$arch/bin/$b" || { echo "::error::missing $arch/bin/$b"; exit 1; }
+            done
+          done
+          for f in qpkg/icons/qnap-netspeed.gif qpkg/icons/qnap-netspeed_80.gif qpkg/icons/qnap-netspeed_gray.gif \
+                   qpkg/shared/licenses/librespeed-cli/LICENSE qpkg/shared/licenses/iperf3/LICENSE; do
+            test -s "$f" || { echo "::error::missing $f"; exit 1; }
+          done
+          du -b qpkg/*/bin/*
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: qpkg-tree
+          path: qpkg/
+          if-no-files-found: error
