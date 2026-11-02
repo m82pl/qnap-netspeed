@@ -1,7 +1,7 @@
 #!/bin/sh
 # Buduje paczki qnap-netspeed_<ver>_<arch>.qpkg przez QDK qbuild (spec pkt 11.2, job `package`).
 # Użycie: scripts/package-qpkg.sh <katalog z bin-x86_64/ i bin-arm_64/> <katalog wyjściowy>
-# Wymaga: qbuild (QDK 2.5.0) w PATH. GITHUB_REF=refs/tags/vX.Y.Z wymusza zgodność z QPKG_VER.
+# Wymaga: roota (właściciel plików w paczce) i qbuild (QDK 2.5.0) w PATH. GITHUB_REF=refs/tags/vX.Y.Z wymusza zgodność z QPKG_VER.
 set -eu
 artifacts=$(cd "$1" && pwd)
 mkdir -p "$2"
@@ -27,6 +27,11 @@ refs/tags/v*)
 esac
 echo "QPKG_VER=$ver"
 
+# Pliki w paczce muszą należeć do roota: tar zapisuje uid/gid z dysku, a instalator
+# rozpakowuje je jako root z tymi samymi numerami. Uid runnera (1001) na NAS-ie może
+# należeć do zwykłego użytkownika, który mógłby wtedy podmienić program działający jako root.
+[ "$(id -u)" = 0 ] || fail "run as root (sudo), so that files in the package are owned by root"
+
 # Drzewo wejściowe QDK w katalogu roboczym (repozytorium zostaje czyste).
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -51,6 +56,9 @@ qbuild_path=$(command -v qbuild) || fail "qbuild not found (install QDK)"
 qdk=$(dirname "$(dirname "$(readlink -f "$qbuild_path")")")
 export QDK_SCRIPTS_DIR="$qdk/scripts" QDK_TEMPLATE_DIR="$qdk/template"
 [ -f "$QDK_SCRIPTS_DIR/qinstall.sh" ] || fail "QDK scripts not found in $qdk"
+
+chown -R 0:0 "$work"
+chmod -R go-w "$work"
 
 cd "$work"
 for arch in $archs; do

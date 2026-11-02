@@ -137,7 +137,7 @@ jobs:
           sudo apt-get install -y -qq "$RUNNER_TEMP/qdk_2.5.0_amd64.deb" busybox-static
           command -v qbuild rsync
       - name: Build .qpkg (x86_64, arm_64)
-        run: sh scripts/package-qpkg.sh artifacts dist
+        run: sudo sh scripts/package-qpkg.sh artifacts dist
       - name: Install, update and remove the x86_64 package (simulated QTS)
         run: sudo sh scripts/test-service.sh artifacts/bin-x86_64/qnetspeed dist/qnap-netspeed_*_x86_64.qpkg
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
