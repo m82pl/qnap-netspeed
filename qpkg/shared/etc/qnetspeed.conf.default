@@ -1,0 +1,52 @@
+# qnap-netspeed: konfiguracja / configuration (spec pkt 10)
+#
+# Ten plik (.default) jest nadpisywany przy każdej aktualizacji paczki.
+# Zmieniaj qnetspeed.conf w tym samym katalogu albo użyj: qnetspeed config set KLUCZ WARTOŚĆ
+# This .default file is replaced on every update. Edit qnetspeed.conf instead,
+# or run: qnetspeed config set KEY VALUE
+#
+# Format: KEY=value, values with spaces in "double quotes". The file is parsed, never executed.
+
+# --- Ogólne / General ---
+LANG=en                        # en | pl — język komunikatów CLI/GUI
+
+# --- WAN ---
+WAN_IFACES=""                  # np. "eth0 eth1"; puste = jeden test trasą domyślną
+WAN_BIND_MODE=source           # source | interface
+WAN_SERVER_IDS=""              # np. "50 51"; puste = automatyczny wybór
+WAN_SERVER_LIST=""             # ścieżka do własnej listy serwerów LibreSpeed (JSON)
+WAN_SECURE=0                   # 1 = HTTPS do serwerów
+WAN_DURATION=10                # s, na kierunek
+WAN_PROBE_IP=1.1.1.1           # cel zapytania o trasę (bez ruchu — tylko netlink)
+WAN_IP_ECHO_URL=""             # opcjonalnie, np. https://api.ipify.org — zapytanie do zewnętrznej usługi
+WAN_SCHEDULE_ENABLE=1
+
+# --- LAN ---
+IPERF_PORT=5201
+LAN_BIND=""                    # adres do nasłuchu iperf3; puste = wszystkie
+LAN_SERVER_ENABLE=1
+LAN_TEST_DURATION=10
+LAN_PARALLEL_STREAMS=4
+LAN_SCHEDULE_TARGETS=""        # np. "192.168.1.50 192.168.1.60"
+
+# --- Linki / Links ---
+LINK_EXPECT=""                 # np. "eth0:2500 eth1:10000" (Mb/s)
+
+# --- Progi i powiadomienia / Thresholds and notifications ---
+MIN_WAN_DL_MBPS=100
+MIN_WAN_UL_MBPS=30
+MAX_WAN_PING_MS=50
+WAN_FAIL_THRESHOLD=2
+MIN_LAN_MBPS=0                 # 0 = wyłączone
+NOTIFY_ENABLE=1
+NOTIFY_REPEAT_HOURS=24
+
+# --- Harmonogram i historia / Schedule and history ---
+CRON_SCHEDULE="17 */6 * * *"
+HISTORY_MAX_LINES=5000         # na plik; starsze wpisy są usuwane przy rotacji
+
+# --- GUI ---
+WEB_PORT=8888
+WEB_BIND=""                    # puste = wszystkie adresy
+WEB_PUBLIC_READ=1              # 1 = historia i test z przeglądarki bez tokenu; 0 = wszystko wymaga tokenu
+WEB_TEST_DURATION=10

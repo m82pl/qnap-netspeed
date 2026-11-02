@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="{{.Lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Net Speed</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<main>
+<h1>Net Speed</h1>
+{{if eq .Lang "pl"}}
+<p class="ok">Usługa qnap-netspeed działa.</p>
+<p>To jest szkielet paczki (faza F1): instalacja, autostart i harmonogram. Testy prędkości i pełne GUI pojawią się w kolejnych wersjach.</p>
+{{else}}
+<p class="ok">The qnap-netspeed service is running.</p>
+<p>This is the package skeleton (phase F1): install, autostart and schedule. Speed tests and the full GUI arrive in later versions.</p>
+{{end}}
+<dl>
+<dt>Version</dt><dd>{{.Version}}</dd>
+<dt>Architecture</dt><dd>{{.Arch}}</dd>
+<dt>Started</dt><dd>{{.Started}}</dd>
+</dl>
+<p><a href="/api/v1/status">/api/v1/status</a></p>
+</main>
+</body>
+</html>

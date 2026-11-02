@@ -1,0 +1,22 @@
+#!/bin/sh
+# Test double of QTS /sbin/getcfg: getcfg SECTION FIELD [-f FILE] [-d DEFAULT] [-u]
+sec=$1 key=$2
+shift 2
+file=/etc/config/uLinux.conf def='' up=''
+while [ $# -gt 0 ]; do
+	case "$1" in
+	-f) file=$2; shift ;;
+	-d) def=$2; shift ;;
+	-u) up=1 ;;
+	esac
+	shift
+done
+val=$(awk -v s="[$sec]" -v k="$key" '
+	/^\[/ { in_s = ($0 == s); next }
+	in_s { i = index($0, "="); if (i == 0) next
+		kk = substr($0, 1, i - 1); gsub(/^[ \t]+|[ \t]+$/, "", kk)
+		if (kk == k) { v = substr($0, i + 1); gsub(/^[ \t]+|[ \t]+$/, "", v); print v; exit } }
+' "$file" 2>/dev/null)
+[ -n "$val" ] || val=$def
+[ -n "$up" ] && val=$(printf '%s' "$val" | tr '[:lower:]' '[:upper:]')
+printf '%s\n' "$val"

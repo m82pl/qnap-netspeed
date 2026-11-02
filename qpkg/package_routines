@@ -1,0 +1,30 @@
+# shellcheck shell=sh
+# shellcheck disable=SC2034,SC2016
+# qnap-netspeed: procedury instalatora QDK 2.5.0 (spec pkt 8.3).
+#
+# Ten plik jest wczytywany (source) przez skrypt instalacyjny .qpkg na NAS-ie.
+# PKG_*_REMOVE to TEKST wklejany do $QPKG_ROOT/.uninstall.sh w chwili instalacji,
+# dlatego jest w pojedynczych cudzysłowach: zmienne rozwijają się dopiero przy odinstalowaniu.
+# Instalator QDK sam zatrzymuje usługę (qnetspeed.sh stop + remove) przed PKG_PRE_REMOVE.
+
+PKG_PRE_REMOVE='{
+	[ -x /etc/init.d/qnetspeed.sh ] && /etc/init.d/qnetspeed.sh stop
+}'
+
+# Po usunięciu folderu paczki skrypt usługi już nie istnieje: sprzątanie crona
+# i dowiązania musi być tutaj, bez odwołań do plików paczki.
+PKG_POST_REMOVE='{
+	if [ -f /etc/config/crontab ] && grep -q " # qnap-netspeed\$" /etc/config/crontab; then
+		grep -v " # qnap-netspeed\$" /etc/config/crontab >/etc/config/crontab.qnetspeed.tmp
+		mv -f /etc/config/crontab.qnetspeed.tmp /etc/config/crontab
+		crontab /etc/config/crontab
+	fi
+	if [ -L /usr/bin/qnetspeed ]; then
+		case "$(readlink /usr/bin/qnetspeed)" in
+		*/qnap-netspeed/bin/qnetspeed) rm -f /usr/bin/qnetspeed ;;
+		esac
+	fi
+	rm -f /var/run/qnetspeed.pid
+}'
+
+# PKG_POST_INSTALL: nic. QTS uruchamia "start" po instalacji, gdy paczka jest włączona.
