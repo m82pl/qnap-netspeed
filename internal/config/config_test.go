@@ -166,7 +166,7 @@ func TestValidate(t *testing.T) {
 }
 
 func TestPortsMustDiffer(t *testing.T) {
-	c, _ := Parse([]byte("WEB_PORT=5201\n"))
+	c, _ := Parse([]byte("WEB_PORT=5288\n"))
 	issues := c.Validate()
 	if !HasErrors(issues) || issues[0].Key != "IPERF_PORT" {
 		t.Fatalf("issues = %v", issues)
