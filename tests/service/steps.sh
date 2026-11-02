@@ -53,7 +53,7 @@ check "listening on 8888" listening 8888
 check "status page" sh -c 'wget -qO- http://127.0.0.1:8888/ | grep -q "Net Speed"'
 check "status API" sh -c 'wget -qO- http://127.0.0.1:8888/api/v1/status | grep -q "\"name\":\"qnap-netspeed\""'
 check "config created from default" test -f $ROOT/etc/qnetspeed.conf
-check "data dir is 0750" sh -c "ls -ld $ROOT/data | grep -q '^drwxr-x---'"
+check "data dir is 0755" sh -c "ls -ld $ROOT/data | grep -q '^drwxr-xr-x'"
 check "/usr/bin/qnetspeed links to the package" sh -c "[ \"\$(readlink /usr/bin/qnetspeed)\" = $ROOT/bin/qnetspeed ]"
 check "qnetspeed in PATH" sh -c 'qnetspeed version | grep -q "^qnetspeed "'
 check "one cron line" sh -c "[ \"\$(grep -c ' # qnap-netspeed\$' $CRONTAB)\" = 1 ]"

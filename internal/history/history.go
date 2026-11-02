@@ -41,10 +41,10 @@ func (s Store) Append(v any) error {
 	if len(data) >= maxLine {
 		return fmt.Errorf("history record is %d bytes, limit %d", len(data), maxLine-1)
 	}
-	if err := os.MkdirAll(filepath.Dir(s.Path), 0o750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(s.Path), 0o755); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(s.Path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o640)
+	f, err := os.OpenFile(s.Path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o644)
 	if err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func (s Store) Rotate(max int) error {
 		tmp.Close()
 		return err
 	}
-	if err := tmp.Chmod(0o640); err != nil {
+	if err := tmp.Chmod(0o644); err != nil {
 		tmp.Close()
 		return err
 	}

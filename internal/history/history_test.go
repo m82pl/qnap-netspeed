@@ -164,3 +164,21 @@ func TestNewID(t *testing.T) {
 		t.Errorf("epoch prefix: %s", got)
 	}
 }
+
+func TestFilesAreWorldReadable(t *testing.T) { // `qnetspeed history` must work without root
+	s := newStore(t)
+	for i := 0; i < 6; i++ {
+		s.Append(rec{t0.Add(time.Duration(i) * time.Minute), "WAN", "", i})
+	}
+	check := func(when string) {
+		fi, err := os.Stat(s.Path)
+		if err != nil || fi.Mode().Perm()&0o044 != 0o044 {
+			t.Errorf("%s: %v %v", when, fi.Mode(), err)
+		}
+	}
+	check("after append")
+	if err := s.Rotate(3); err != nil {
+		t.Fatal(err)
+	}
+	check("after rotate")
+}

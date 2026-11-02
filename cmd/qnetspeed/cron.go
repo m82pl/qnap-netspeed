@@ -13,7 +13,7 @@ import (
 // and records the run in data/qnetspeed.log, which proves the crontab entry
 // works on the NAS. The scheduled tests arrive in F3.
 func (a *app) cron() int {
-	if err := os.MkdirAll(a.layout.DataDir(), 0o750); err != nil {
+	if err := os.MkdirAll(a.layout.DataDir(), 0o755); err != nil {
 		fmt.Fprintf(a.stderr, "qnetspeed cron: %v\n", err)
 		return exitTestError
 	}
