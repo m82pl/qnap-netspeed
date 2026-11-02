@@ -92,3 +92,22 @@ func TestTableName(t *testing.T) {
 		}
 	}
 }
+
+type masterSys struct {
+	fakeSys
+	master string
+}
+
+func (m *masterSys) Master(string) string { return m.master }
+
+func TestInspectNoIPv4NamesTheBridge(t *testing.T) {
+	f := &masterSys{fakeSys{addrs: map[string][]net.IP{"eth0": nil}}, "qvs0"}
+	c := Inspect(f, "eth0", probe)
+	if c.Reason != ReasonNoIPv4 || c.Master != "qvs0" {
+		t.Fatalf("%+v", c)
+	}
+	// A System without the optional capability still works.
+	if c := Inspect(&fakeSys{addrs: map[string][]net.IP{"eth0": nil}}, "eth0", probe); c.Master != "" || c.Reason != ReasonNoIPv4 {
+		t.Fatalf("%+v", c)
+	}
+}

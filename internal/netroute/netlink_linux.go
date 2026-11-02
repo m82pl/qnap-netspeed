@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"syscall"
 	"time"
 )
@@ -76,6 +77,15 @@ func (Linux) HasSourceRule(src net.IP) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// Master implements Masterer: the target of /sys/class/net/<iface>/master.
+func (Linux) Master(iface string) string {
+	t, err := os.Readlink("/sys/class/net/" + iface + "/master")
+	if err != nil {
+		return ""
+	}
+	return filepath.Base(t)
 }
 
 func ifaceName(idx int) string {

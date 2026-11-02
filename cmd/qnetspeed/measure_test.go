@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
@@ -62,6 +63,12 @@ func (f fakeNet) RouteGet(src, _ net.IP) (netroute.Route, error) {
 	return netroute.Route{EgressIface: "eth0", Gateway: "192.168.1.1", Table: "main"}, nil
 }
 func (f fakeNet) HasSourceRule(net.IP) (bool, error) { return false, nil }
+func (f fakeNet) Master(i string) string {
+	if i == "eth0" {
+		return "qvs0"
+	}
+	return ""
+}
 
 func lsOK(t *testing.T) runner.Result {
 	b, err := os.ReadFile("../../testdata/librespeed/v1.0.14/synthetic-success.json")
@@ -406,5 +413,36 @@ func TestParseSince(t *testing.T) {
 		if _, err := parseSince(in); err == nil {
 			t.Errorf("%q must fail", in)
 		}
+	}
+}
+
+func TestRoutesDefaultListHidesVirtualInterfaces(t *testing.T) {
+	a, out, _ := measureApp(t, &fakeRun{})
+	a.system.sysfs = fstest.MapFS{
+		"lo/operstate":  {Data: []byte("unknown\n")},
+		"eth0/device/x": {}, "eth1/device/x": {},
+		"qvs0/bridge/x": {}, "qvs0/brif/eth0": {Mode: fs.ModeDir},
+		"docker0/bridge/x": {}, "lxcbr0/bridge/x": {}, "tailscale0/operstate": {Data: []byte("unknown\n")},
+		"bond0/bonding/slaves": {Data: []byte("\n")},
+	}
+	a.system.net = fakeNet{map[string]string{"eth0": "", "eth1": "", "qvs0": "192.168.1.6"}}
+	if code := a.run([]string{"routes"}); code != exitOK {
+		t.Fatalf("code %d", code)
+	}
+	s := out.String()
+	for _, want := range []string{"eth0", "eth1", "qvs0", "no IP (address is on qvs0)"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("missing %q in %q", want, s)
+		}
+	}
+	for _, hidden := range []string{"docker0", "lxcbr0", "tailscale0", "bond0"} {
+		if strings.Contains(s, hidden) {
+			t.Errorf("%s must be hidden: %q", hidden, s)
+		}
+	}
+	out.Reset()
+	a.run([]string{"routes", "--all"})
+	if !strings.Contains(out.String(), "tailscale0") || !strings.Contains(out.String(), "docker0") {
+		t.Errorf("--all must list everything: %q", out)
 	}
 }

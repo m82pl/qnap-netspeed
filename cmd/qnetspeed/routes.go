@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/fs"
 	"net"
 	"strings"
 	"text/tabwriter"
@@ -12,7 +13,7 @@ import (
 	"github.com/m82pl/qnap-netspeed/internal/netroute"
 )
 
-const routesUsage = "Usage: qnetspeed routes [--json]\n"
+const routesUsage = "Usage: qnetspeed routes [--all] [--json]\n"
 
 type routeRow struct {
 	Interface   string `json:"interface"`
@@ -23,14 +24,16 @@ type routeRow struct {
 	PolicyRule  bool   `json:"policy_rule"`
 	State       string `json:"state"` // ok | mismatch | no_ip | error
 	Error       string `json:"error,omitempty"`
+	Master      string `json:"master,omitempty"`
 }
 
 // routes shows, per interface, where traffic from its address would leave
 // (spec pkt 5.1.1). It lists WAN_IFACES, or every non-loopback interface.
 func (a *app) routes(args []string) int {
 	fset := flag.NewFlagSet("routes", flag.ContinueOnError)
-	var asJSON bool
+	var asJSON, showAll bool
 	fset.BoolVar(&asJSON, "json", false, "")
+	fset.BoolVar(&showAll, "all", false, "")
 	pos, err := parseFlags(fset, args)
 	if err != nil || len(pos) > 0 {
 		fmt.Fprint(a.stderr, routesUsage)
@@ -50,7 +53,7 @@ func (a *app) routes(args []string) int {
 			return exitTestError
 		}
 		for _, i := range all {
-			if i.Name != "lo" {
+			if i.Name != "lo" && (showAll || hasPhysicalPort(sys.sysfs, i.Name)) {
 				names = append(names, i.Name)
 			}
 		}
@@ -94,6 +97,7 @@ func routeRowFor(k netroute.Check) routeRow {
 	}
 	switch {
 	case k.Reason == netroute.ReasonNoIPv4, k.Reason == netroute.ReasonNoIface:
+		r.Master = k.Master
 		r.State = "no_ip"
 		if k.Err != nil {
 			r.Error = k.Err.Error()
@@ -121,6 +125,12 @@ func routeStateText(c interface{ Get(string) string }, r routeRow) string {
 	case "mismatch":
 		return "mismatch"
 	case "no_ip":
+		if r.Master != "" {
+			if pl {
+				return "brak IP (adres ma " + r.Master + ")"
+			}
+			return "no IP (address is on " + r.Master + ")"
+		}
 		if pl {
 			return "brak IP"
 		}
@@ -130,4 +140,16 @@ func routeStateText(c interface{ Get(string) string }, r routeRow) string {
 		return "błąd: " + r.Error
 	}
 	return "error: " + r.Error
+}
+
+// hasPhysicalPort is true for physical ports and for bridges and bonds with a
+// physical port behind them; docker0, lxcbr0, tailscale0 and empty bonds are not.
+func hasPhysicalPort(fsys fs.FS, name string) bool {
+	phys, _ := link.Resolve(fsys, name)
+	for _, p := range phys {
+		if i, err := link.ReadOne(fsys, p.Name); err == nil && i.Kind == link.KindPhysical {
+			return true
+		}
+	}
+	return false
 }
