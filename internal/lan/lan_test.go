@@ -285,3 +285,43 @@ func TestParseOutputUDPReceiverView(t *testing.T) {
 		t.Errorf("%+v %v", o, err)
 	}
 }
+
+// The files captured-ci-* are real iperf3 3.22 output (testdata/iperf3/3.22/README.md).
+func TestParseRealCaptures(t *testing.T) {
+	up, err := ParseOutput(td(t, "captured-ci-tcp-upload.json"))
+	if err != nil || mbps(up.ReceivedBps) != 165673.29 || *up.Retransmits != 4 || int(*up.CPUHost) != 251 || up.Version != "3.22" || up.JitterMs != nil {
+		t.Errorf("upload: %+v %v", up, err)
+	}
+	down, err := ParseOutput(td(t, "captured-ci-tcp-download.json"))
+	if err != nil || mbps(down.ReceivedBps) != 162679.31 {
+		t.Errorf("download: %+v %v", down, err)
+	}
+	bi, err := ParseOutput(td(t, "captured-ci-tcp-bidir.json"))
+	if err != nil || mbps(bi.ReceivedBps) != 73558.56 || bi.ReverseBps == nil || mbps(*bi.ReverseBps) != 73392.43 || *bi.Retransmits != 13 {
+		t.Errorf("bidir: %+v %v", bi, err)
+	}
+	udp, err := ParseOutput(td(t, "captured-ci-udp.json"))
+	if err != nil || mbps(udp.ReceivedBps) != 100.07 || udp.JitterMs == nil || *udp.JitterMs != 0.017142320191236689 || *udp.LostPercent != 0 {
+		t.Errorf("udp: %+v %v", udp, err)
+	}
+	_, err = ParseOutput(td(t, "captured-ci-error-refused.json"))
+	if err == nil || !strings.HasPrefix(err.Error(), "unable to connect to server") || !strings.HasSuffix(err.Error(), "Connection refused") {
+		t.Errorf("refused: %v", err)
+	}
+}
+
+func TestRunRealCapturesBidirAndUDP(t *testing.T) {
+	p := params
+	p.Bidir, p.UDP, p.Bitrate = true, true, "100M"
+	e := eng(&seqRunner{res: []runner.Result{td(t, "captured-ci-tcp-bidir.json"), td(t, "captured-ci-udp.json")}})
+	e.CPUs = 4
+	rec := e.Run(context.Background(), p, "cli")
+	r := rec.Results
+	if rec.Status != "ok" || r.UploadMbps != 73558.56 || r.DownloadMbps != 73392.43 || r.JitterMs == nil || *r.RetransmitsUpload != 13 {
+		t.Fatalf("%+v %+v", rec, r)
+	}
+	// 202% CPU with 8 streams on 4 cores is far from saturated.
+	if len(rec.Warnings) != 0 {
+		t.Errorf("warnings %v", rec.Warnings)
+	}
+}
