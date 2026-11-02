@@ -138,7 +138,6 @@ do_start() {
 		exit 1
 	fi
 	if ! web_port=$("$BIN" config get WEB_PORT) ||
-		! iperf_port=$("$BIN" config get IPERF_PORT) ||
 		! schedule=$("$BIN" config get CRON_SCHEDULE); then
 		log 2 "Start failed: cannot read configuration"
 		exit 1
@@ -153,12 +152,12 @@ do_start() {
 	fi
 	rm -f "$PIDFILE"
 
-	for p in "$web_port" "$iperf_port"; do
-		if port_listening "$p"; then
-			log 2 "Start failed: port $p is already in use by another program"
-			exit 1
-		fi
-	done
+	# Tylko WEB_PORT: serwer iperf3 (IPERF_PORT) uruchamia demon dopiero od F4 i wtedy
+	# dojdzie tu kontrola IPERF_PORT przy LAN_SERVER_ENABLE=1.
+	if port_listening "$web_port"; then
+		log 2 "Start failed: port $web_port is already in use by another program"
+		exit 1
+	fi
 
 	/sbin/setcfg "$QPKG_NAME" Web_Port "$web_port" -f "$CONF"
 	link_create

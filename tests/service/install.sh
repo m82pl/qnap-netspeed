@@ -59,6 +59,8 @@ check "status API" sh -c 'wget -qO- http://127.0.0.1:8888/api/v1/status | grep -
 check "cron line" sh -c "[ \"\$(grep -c ' # qnap-netspeed\$' $CRONTAB)\" = 1 ]"
 check "qnetspeed in PATH" sh -c 'qnetspeed version | grep -q "^qnetspeed "'
 check "config created" test -f $ROOT/etc/qnetspeed.conf
+check "all package files owned by root" sh -c "[ -z \"\$(find $ROOT ! -user 0)\" ]"
+check "no group/world-writable binaries or script" sh -c "[ -z \"\$(find $ROOT/bin $ROOT/qnetspeed.sh -perm -002 -o -perm -020)\" ]"
 pid1=$(cat /var/run/qnetspeed.pid)
 
 step "update keeps configuration and data (A12)"

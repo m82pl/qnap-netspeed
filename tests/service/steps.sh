@@ -127,6 +127,24 @@ check "no cron line" sh -c "[ \"\$(grep -c ' # qnap-netspeed\$' $CRONTAB)\" = 0 
 kill $ncpid
 wait $ncpid 2>/dev/null
 
+step "port 5201 taken by another program does not block start (no iperf3 server before F4)"
+mkdir -p /t/other5201/etc
+echo 'WEB_PORT=5201' >/t/other5201/etc/qnetspeed.conf
+echo 'IPERF_PORT=5202' >>/t/other5201/etc/qnetspeed.conf
+QNETSPEED_ROOT=/t/other5201 $ROOT/bin/qnetspeed daemon >/dev/null 2>&1 &
+otherpid=$!
+i=0
+while ! listening 5201 && [ $i -lt 50 ]; do
+	usleep 100000
+	i=$((i + 1))
+done
+check "5201 is taken" listening 5201
+expect_code 0 "start with 5201 taken" $SVC start
+check "listening on 8888" listening 8888
+expect_code 0 "stop" $SVC stop
+kill $otherpid
+wait $otherpid 2>/dev/null
+
 step "invalid configuration"
 cp $ROOT/etc/qnetspeed.conf /tmp/conf.bak
 echo 'WEB_PORT=80' >>$ROOT/etc/qnetspeed.conf

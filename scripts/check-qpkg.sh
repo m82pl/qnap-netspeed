@@ -47,6 +47,13 @@ tail -c +$((script_len + 20480 + 1)) "$qpkg" | head -c $((blocks * 1024)) >"$x/d
 # Za archiwum gzip leży stopka QPKG (podpis, nazwa, wersja): gzip ostrzega o niej, tar nie.
 { gzip -dc "$x/data.tar.gz" 2>/dev/null || true; } | tar -x -C "$x/tree/data" || fail "cannot extract data files"
 
+# Każdy plik i katalog w danych paczki musi należeć do roota (0/0) i nie może być zapisywalny
+# dla grupy ani innych: skrypt usługi i binaria działają na NAS-ie jako root.
+bad_owner=$({ gzip -dc "$x/data.tar.gz" 2>/dev/null || true; } | tar -tv --numeric-owner | awk '$2 != "0/0"')
+[ -z "$bad_owner" ] || fail "files not owned by root: $bad_owner"
+bad_mode=$({ gzip -dc "$x/data.tar.gz" 2>/dev/null || true; } | tar -tv | awk 'substr($1, 6, 1) == "w" || substr($1, 9, 1) == "w"')
+[ -z "$bad_mode" ] || fail "group/world-writable files: $bad_mode"
+
 # find_one SUFFIX: ścieżka jedynego pliku kończącego się na /SUFFIX.
 find_one() {
 	n=$(find "$x/tree" -path "*/$1" -type f | wc -l)
