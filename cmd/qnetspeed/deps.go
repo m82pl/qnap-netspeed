@@ -105,7 +105,7 @@ func (a *app) needRoot(c *config.Config) bool {
 // acquire takes the single active-test lock (spec pkt 3.2). On failure it
 // prints the reason and returns the exit code.
 func (a *app) acquire(c *config.Config, typ string, waitSec int) (*lock.Lock, int) {
-	if err := os.MkdirAll(a.layout.DataDir(), 0o750); err != nil {
+	if err := os.MkdirAll(a.layout.DataDir(), 0o755); err != nil {
 		fmt.Fprintf(a.stderr, "qnetspeed: %v\n", err)
 		return nil, exitTestError
 	}

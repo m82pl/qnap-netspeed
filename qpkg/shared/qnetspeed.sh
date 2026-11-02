@@ -129,7 +129,12 @@ do_start() {
 		exit 1
 	fi
 
-	mkdir -p "$QPKG_ROOT/data" && chmod 0750 "$QPKG_ROOT/data"
+	# data/ is readable by everyone so that `qnetspeed history` works without root
+	# (spec pkt 6); it holds results only, secrets stay in etc/.
+	mkdir -p "$QPKG_ROOT/data" && chmod 0755 "$QPKG_ROOT/data"
+	for f in "$QPKG_ROOT"/data/*.jsonl; do
+		[ -f "$f" ] && chmod 0644 "$f"
+	done
 	if [ ! -f "$QPKG_ROOT/etc/qnetspeed.conf" ] && [ -f "$QPKG_ROOT/etc/qnetspeed.conf.default" ]; then
 		cp "$QPKG_ROOT/etc/qnetspeed.conf.default" "$QPKG_ROOT/etc/qnetspeed.conf"
 	fi
