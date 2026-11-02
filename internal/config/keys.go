@@ -247,3 +247,20 @@ func cronField(f string, lo, hi int) error {
 	}
 	return nil
 }
+
+// ValidHost checks one IP address or host name given on the command line
+// (spec pkt 17: validate every target before it reaches iperf3).
+func ValidHost(v string) error {
+	if v == "" || len(strings.Fields(v)) != 1 {
+		return fmt.Errorf("%q is not an IP address or host name", v)
+	}
+	return hostList(v)
+}
+
+// ValidIface checks one interface name given on the command line.
+func ValidIface(v string) error {
+	if !ifaceRe.MatchString(v) {
+		return fmt.Errorf("%q is not a valid interface name", v)
+	}
+	return nil
+}

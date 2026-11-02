@@ -35,6 +35,15 @@ Commands:
   config check            Validate the configuration file
   config get KEY          Print one value
   config set KEY VALUE    Validate and save one value
+  wan [--iface IF]... [--all] [--server ID]... [--json] [--quiet] [--wait N]
+                          Internet speed test (librespeed-cli), result to wan.jsonl
+  lan-test HOST [--time N] [--parallel N] [--iface IF] [--udp [--bitrate B]] [--bidir] [--json] [--quiet] [--wait N]
+                          LAN speed test against a host running iperf3 -s
+  link [--iface IF] [--json] [--record]
+                          State of network interfaces (speed, duplex, MTU, bridge/bond)
+  routes [--json]         Multi-WAN diagnostics: which interface the traffic leaves through
+  history [--type wan|lan|link] [--last N] [--since 7d] [--iface IF] [--json|--csv]
+                          Recent results
   daemon                  Run the web server (started by the service script)
   cron                    Scheduled run (started by crond)
   help                    Show this help
@@ -47,6 +56,7 @@ type app struct {
 	stdout   io.Writer
 	stderr   io.Writer
 	cronWait time.Duration
+	system   system // measurement dependencies; zero value = the real OS
 }
 
 func main() {
@@ -74,6 +84,16 @@ func (a *app) run(args []string) int {
 		return a.version()
 	case "config":
 		return a.config(args[1:])
+	case "wan":
+		return a.wan(args[1:])
+	case "lan-test":
+		return a.lanTest(args[1:])
+	case "link":
+		return a.link(args[1:])
+	case "routes":
+		return a.routes(args[1:])
+	case "history":
+		return a.history(args[1:])
 	case "daemon":
 		if len(args) > 1 {
 			fmt.Fprintf(a.stderr, "qnetspeed daemon: unexpected argument %q\n", args[1])
