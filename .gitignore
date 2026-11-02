@@ -1,0 +1,22 @@
+# Podpis kodu QPKG: nigdy w repozytorium (spec pkt 11.4)
+certificate
+private_key
+ca_certs
+qpkg/certificate
+qpkg/private_key
+qpkg/ca_certs
+
+# Wyjście QDK i binaria wypełniane w CI
+qpkg/build/
+qpkg/*/bin/*
+!qpkg/*/bin/.gitkeep
+qpkg/shared/licenses/
+
+# Lokalne budowanie
+/out/
+/dist/
+/build/
+*.qpkg
+*.test
+*.out
+coverage.*

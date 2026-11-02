@@ -1,0 +1,15 @@
+librespeed-cli is distributed in this package as an unmodified binary built from source.
+
+Project:  LibreSpeed CLI (speedtest-cli)
+License:  GNU Lesser General Public License v3.0 (LICENSE), which incorporates
+          the GNU General Public License v3.0 (COPYING.GPL-3)
+Source:   https://github.com/librespeed/speedtest-cli
+Version:  v1.0.14
+Commit:   42e5f76c90e64e04ab7079fd76d833dfe41805da
+
+Build:    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w
+          -X github.com/librespeed/speedtest-cli/defs.ProgName=librespeed-cli
+          -X github.com/librespeed/speedtest-cli/defs.ProgVersion=v1.0.14"
+          (see scripts/build-librespeed-cli.sh in https://github.com/m82pl/qnap-netspeed)
+
+The complete corresponding source code is available at the URL and commit above.
