@@ -40,9 +40,10 @@ func (l Layout) ConfigFile() string { return filepath.Join(l.Root, "etc", "qnets
 func (l Layout) DefaultConfig() string {
 	return filepath.Join(l.Root, "etc", "qnetspeed.conf.default")
 }
-func (l Layout) DataDir() string  { return filepath.Join(l.Root, "data") }
-func (l Layout) LockFile() string { return filepath.Join(l.DataDir(), ".test.lock") }
-func (l Layout) LogFile() string  { return filepath.Join(l.DataDir(), "qnetspeed.log") }
+func (l Layout) DataDir() string   { return filepath.Join(l.Root, "data") }
+func (l Layout) LockFile() string  { return filepath.Join(l.DataDir(), ".test.lock") }
+func (l Layout) StateFile() string { return filepath.Join(l.DataDir(), "state.json") }
+func (l Layout) LogFile() string   { return filepath.Join(l.DataDir(), "qnetspeed.log") }
 
 func (l Layout) WanHistory() string  { return filepath.Join(l.DataDir(), "wan.jsonl") }
 func (l Layout) LanHistory() string  { return filepath.Join(l.DataDir(), "lan.jsonl") }

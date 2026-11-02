@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -77,7 +78,7 @@ func (a *app) lanTest(args []string) int {
 
 	sys := a.sys()
 	eng := &lan.Engine{Runner: sys.run, Net: sys.net, Sys: sysAdapter{sys.sysfs},
-		Bin: filepath.Join(a.binDir, "iperf3"), Now: sys.now, Inbound: a.inbound}
+		Bin: filepath.Join(a.binDir, "iperf3"), Now: sys.now, CPUs: runtime.NumCPU(), Inbound: a.inbound}
 	ctx, stop := interruptible()
 	defer stop()
 	if !quiet && !asJSON {

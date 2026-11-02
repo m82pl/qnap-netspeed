@@ -92,7 +92,9 @@ func ParseOutput(res runner.Result) (Output, error) {
 		} `json:"start"`
 		End struct {
 			SumReceived *struct {
-				Bps float64 `json:"bits_per_second"`
+				Bps    float64  `json:"bits_per_second"`
+				Jitter *float64 `json:"jitter_ms"`
+				Lost   *float64 `json:"lost_percent"`
 			} `json:"sum_received"`
 			SumSent *struct {
 				Retransmits *int `json:"retransmits"`
@@ -142,7 +144,12 @@ func ParseOutput(res runner.Result) (Output, error) {
 		v := e.ReverseReceived.Bps
 		o.ReverseBps = &v
 	}
-	if e.Sum != nil && e.SumReceived == nil {
+	// UDP: iperf3 3.16+ prints jitter and loss in end.sum_received (the receiver's
+	// view, also in end.sum); older versions only in end.sum. TCP has neither.
+	switch {
+	case e.SumReceived != nil && e.SumReceived.Jitter != nil:
+		o.JitterMs, o.LostPercent = e.SumReceived.Jitter, e.SumReceived.Lost
+	case e.Sum != nil:
 		o.JitterMs, o.LostPercent = e.Sum.Jitter, e.Sum.Lost
 	}
 	if e.CPU != nil {
@@ -207,6 +214,8 @@ type Engine struct {
 	}
 	Bin string
 	Now func() time.Time
+	// CPUs is the number of cores of the NAS; it scales the cpu_limited check (0 = one core).
+	CPUs int
 	// Inbound reports an active incoming iperf3 connection (spec pkt 3.2). May be nil.
 	Inbound func(port int) bool
 }
@@ -285,7 +294,23 @@ func (e *Engine) Run(ctx context.Context, p Params, trigger string) Record {
 			res.CPULocalPercent = &v
 		}
 	}
-	if res.CPULocalPercent != nil && *res.CPULocalPercent > cpuLimitPercent {
+	// host_total is the CPU time of all threads relative to one core (a 4-stream
+	// test on 4 cores can show 400%); iperf3 3.16+ runs one thread per stream.
+	threads := p.Parallel
+	if p.Bidir {
+		threads *= 2
+	}
+	cores := e.CPUs
+	if cores < 1 {
+		cores = 1
+	}
+	if threads > cores {
+		threads = cores
+	}
+	if threads < 1 {
+		threads = 1
+	}
+	if res.CPULocalPercent != nil && *res.CPULocalPercent > cpuLimitPercent*float64(threads) {
 		rec.Warnings = append(rec.Warnings, WarnCPULimited)
 	}
 	if e.Inbound != nil && e.Inbound(p.Port) {

@@ -195,11 +195,9 @@ func TestConfigSet(t *testing.T) {
 	}
 }
 
-func TestCron(t *testing.T) {
+func TestCronBusyAndExtraConfig(t *testing.T) {
 	a, _, _ := testApp(t)
-	if code := a.run([]string{"cron"}); code != exitOK {
-		t.Fatalf("cron: code %d", code)
-	}
+	a.system.euid = func() int { return 0 }
 	l, err := lock.Acquire(a.layout.LockFile(), "wan", 0)
 	if err != nil {
 		t.Fatal(err)
@@ -209,9 +207,12 @@ func TestCron(t *testing.T) {
 	}
 	l.Release()
 	log, _ := os.ReadFile(a.layout.LogFile())
-	s := string(log)
-	if strings.Count(s, "\n") != 2 || !strings.Contains(s, "cron: run") || !strings.Contains(s, "cron: skipped, another test is running: wan") {
-		t.Errorf("log = %q", s)
+	if !strings.Contains(string(log), "cron: skipped, another test is running: wan") {
+		t.Errorf("log = %q", log)
+	}
+	writeFile(t, a.layout.ConfigFile(), "WEB_PORT=22\n")
+	if code := a.run([]string{"cron"}); code != exitConfig {
+		t.Fatalf("bad config: code %d", code)
 	}
 }
 

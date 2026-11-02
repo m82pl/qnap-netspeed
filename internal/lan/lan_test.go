@@ -245,3 +245,43 @@ func TestInboundFromProcTCP(t *testing.T) {
 		t.Error("LISTEN counted as a test")
 	}
 }
+
+// Real iperf3 3.16+ reports the CPU time of all threads relative to one core:
+// a 4-stream test on a 4-core NAS can show 318% without being CPU-limited.
+func TestCPULimitScalesWithCores(t *testing.T) {
+	res := func(total string) runner.Result {
+		r := td(t, "synthetic-tcp-upload.json")
+		r.Stdout = []byte(strings.Replace(string(r.Stdout), `"host_total":41.0`, `"host_total":`+total, 1))
+		return r
+	}
+	run := func(cores, parallel int, total string) []string {
+		e := eng(&seqRunner{res: []runner.Result{res(total)}})
+		e.CPUs = cores
+		p := params
+		p.Parallel = parallel
+		return e.Run(context.Background(), p, "cli").Warnings
+	}
+	if w := run(4, 4, "318.3"); len(w) != 0 {
+		t.Errorf("318%% of 4 cores is not a limit: %v", w)
+	}
+	if w := run(4, 4, "370.0"); len(w) != 1 || w[0] != WarnCPULimited {
+		t.Errorf("370%% of 4 cores is: %v", w)
+	}
+	if w := run(4, 1, "95.0"); len(w) != 1 {
+		t.Errorf("one stream can use one core only: %v", w)
+	}
+	if w := run(2, 4, "150.0"); len(w) != 0 {
+		t.Errorf("2 cores: 150%% is below 180%%: %v", w)
+	}
+}
+
+func TestParseOutputUDPReceiverView(t *testing.T) {
+	// iperf3 3.16+: jitter and loss are in end.sum_received (and end.sum).
+	body := `{"start":{"version":"iperf 3.16"},"end":{"sum":{"bits_per_second":99989138,"jitter_ms":0.02,"lost_percent":0,"sender":true},` +
+		`"sum_sent":{"bits_per_second":99989138,"jitter_ms":0,"lost_percent":0,"sender":true},` +
+		`"sum_received":{"bits_per_second":99978942,"jitter_ms":0.0207,"lost_packets":3,"packets":763,"lost_percent":0.39,"sender":false}}}`
+	o, err := ParseOutput(runner.Result{Stdout: []byte(body)})
+	if err != nil || o.JitterMs == nil || *o.JitterMs != 0.0207 || o.LostPercent == nil || *o.LostPercent != 0.39 || o.ReceivedBps != 99978942 {
+		t.Errorf("%+v %v", o, err)
+	}
+}
