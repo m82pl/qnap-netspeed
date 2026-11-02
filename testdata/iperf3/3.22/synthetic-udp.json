@@ -1,0 +1,1 @@
+{"start":{"version":"iperf 3.22","test_start":{"protocol":"UDP","num_streams":1,"duration":10}},"intervals":[],"end":{"sum":{"bytes":125000000,"bits_per_second":100000000,"jitter_ms":0.031,"lost_packets":4,"packets":86000,"lost_percent":0.0046,"sender":false},"cpu_utilization_percent":{"host_total":9.0}}}

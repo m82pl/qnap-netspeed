@@ -1,0 +1,1 @@
+{"start":{"version":"iperf 3.22","test_start":{"protocol":"TCP","num_streams":4,"duration":10,"reverse":1}},"intervals":[],"end":{"sum_sent":{"bytes":2930000000,"bits_per_second":2344000000,"retransmits":12,"sender":true},"sum_received":{"bytes":2925000000,"bits_per_second":2340500000,"sender":false},"cpu_utilization_percent":{"host_total":38.5,"remote_total":45.0}}}
