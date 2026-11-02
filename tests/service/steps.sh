@@ -71,10 +71,20 @@ check "still one cron line" sh -c "[ \"\$(grep -c ' # qnap-netspeed\$' $CRONTAB)
 check_not "crontab not reloaded again" test -e $SPOOL
 expect_code 0 "status while running" $SVC status
 
-step "cron entry runs"
+step "cron entry runs (F3)"
+# The chroot has no internet and no /sys: no WAN test, an empty list of interfaces.
+mkdir -p /sys/class/net
+$ROOT/bin/qnetspeed config set WAN_SCHEDULE_ENABLE 0 >/dev/null
 line=$(grep ' # qnap-netspeed$' $CRONTAB | sed 's/^\([^ ]* \)\{5\}//')
+logtool_before=$(wc -l <$LOGTOOL)
 expect_code 0 "cron command" sh -c "$line"
-check "cron run logged" grep -q 'cron: run' $ROOT/data/qnetspeed.log
+check "cron run logged" grep -q 'cron: done' $ROOT/data/qnetspeed.log
+check "link state recorded" grep -q '"type":"LINK"' $ROOT/data/link.jsonl
+check "state.json written" test -f $ROOT/data/state.json
+check "no System Logs entry for a healthy run" test "$(wc -l <$LOGTOOL)" = "$logtool_before"
+expect_code 0 "notify test" $ROOT/bin/qnetspeed notify test --level 1
+check "System Logs: notify test" grep -q '^-t 1 -a \[qnap-netspeed\] test message' $LOGTOOL
+$ROOT/bin/qnetspeed config set WAN_SCHEDULE_ENABLE 1 >/dev/null
 
 step "config change of port applies on restart"
 $ROOT/bin/qnetspeed config set WEB_PORT 8899 >/dev/null

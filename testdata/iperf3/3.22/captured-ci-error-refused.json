@@ -1,0 +1,1 @@
+{"start":{"connected":[],"version":"iperf 3.22","system_info":"Linux ip-10-0-129-245 7.0.0-1014-aws #14~24.04.1-Ubuntu SMP PREEMPT Fri Sep 18 21:24:59 UTC 2026 x86_64"},"end":{},"error":"unable to connect to server - server may have stopped running or use a different port, firewall issue, etc.: Connection refused"}

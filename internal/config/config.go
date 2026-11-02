@@ -203,6 +203,12 @@ func (c *Config) Int(name string) int {
 	return n
 }
 
+// Float returns a key as float64; call only after Validate reported no errors.
+func (c *Config) Float(name string) float64 {
+	f, _ := strconv.ParseFloat(c.Get(name), 64)
+	return f
+}
+
 // Validate checks every effective value and cross-key rules.
 func (c *Config) Validate() []Issue {
 	var issues []Issue
