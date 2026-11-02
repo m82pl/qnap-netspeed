@@ -281,6 +281,10 @@ func round1(v float64) float64 { return float64(int(v*10+0.5)) / 10 }
 
 func skipMessage(c netroute.Check) string {
 	if c.Reason == netroute.ReasonNoIPv4 {
+		if c.Master != "" {
+			return fmt.Sprintf("interface %s has no IPv4 address; it is a member of %s, which holds the address: put %s in WAN_IFACES",
+				c.Iface, c.Master, c.Master)
+		}
 		return fmt.Sprintf("interface %s has no usable IPv4 address", c.Iface)
 	}
 	return fmt.Sprintf("interface %s: %v", c.Iface, c.Err)

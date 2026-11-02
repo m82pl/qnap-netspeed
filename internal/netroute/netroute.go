@@ -28,6 +28,11 @@ type System interface {
 	HasSourceRule(src net.IP) (bool, error)
 }
 
+// Masterer is an optional System capability: the bridge or bond an interface
+// is a member of ("" if none). It lets a "no IPv4" answer name the interface
+// that actually holds the address (on QNAP, eth0 is a member of qvs0).
+type Masterer interface{ Master(iface string) string }
+
 // Reasons why an interface cannot be tested.
 const (
 	ReasonNoIPv4  = "no_ipv4"
@@ -41,6 +46,7 @@ type Check struct {
 	Route   *Route // nil when Address is nil or the lookup failed
 	Reason  string // ReasonNoIPv4 / ReasonNoIface when the interface cannot be tested
 	Err     error  // the underlying failure, if any
+	Master  string // bridge or bond the interface belongs to, set with ReasonNoIPv4
 }
 
 // Inspect runs the steps of spec pkt 5.1.1 for iface and probe address.
@@ -55,6 +61,9 @@ func Inspect(sys System, iface string, probe net.IP) Check {
 	c.Address = FirstGlobal(addrs)
 	if c.Address == nil {
 		c.Reason = ReasonNoIPv4
+		if m, ok := sys.(Masterer); ok {
+			c.Master = m.Master(iface)
+		}
 		return c
 	}
 	r, err := sys.RouteGet(c.Address, probe)

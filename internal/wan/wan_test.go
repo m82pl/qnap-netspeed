@@ -299,3 +299,15 @@ func TestEchoIPUsedWhenClientIPMissing(t *testing.T) {
 		t.Errorf("echo failure must not fail the test: %+v", rec)
 	}
 }
+
+type bridgeNet struct{ fakeNet }
+
+func (bridgeNet) Master(string) string { return "qvs0" }
+
+func TestRunInterfaceSkippedMemberOfBridge(t *testing.T) {
+	n := bridgeNet{fakeNet{addrs: map[string]string{"eth0": ""}}}
+	rec := engine(&fakeRunner{}, n).RunInterface(context.Background(), settings, "eth0", "cli")
+	if rec.Status != StatusSkipped || !strings.Contains(*rec.Error, "put qvs0 in WAN_IFACES") {
+		t.Fatalf("%+v", rec)
+	}
+}
