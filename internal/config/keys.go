@@ -34,7 +34,7 @@ var Keys = []key{
 	{"WAN_SCHEDULE_ENABLE", "1", boolean},
 
 	// LAN
-	{"IPERF_PORT", "5201", port},
+	{"IPERF_PORT", "5288", port},
 	{"LAN_BIND", "", ipOrEmpty},
 	{"LAN_SERVER_ENABLE", "1", boolean},
 	{"LAN_TEST_DURATION", "10", intRange(1, 300)},

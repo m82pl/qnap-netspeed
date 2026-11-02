@@ -22,7 +22,7 @@ WAN_IP_ECHO_URL=""             # opcjonalnie, np. https://api.ipify.org — zapy
 WAN_SCHEDULE_ENABLE=1
 
 # --- LAN ---
-IPERF_PORT=5201
+IPERF_PORT=5288                # nie 5201: domyślny port iperf3 bywa już zajęty na NAS-ie
 LAN_BIND=""                    # adres do nasłuchu iperf3; puste = wszystkie
 LAN_SERVER_ENABLE=1
 LAN_TEST_DURATION=10
