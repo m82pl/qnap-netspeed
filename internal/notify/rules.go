@@ -118,7 +118,8 @@ func LANFindings(t Thresholds, recs []lan.Record) []Finding {
 }
 
 // LinkFindings turns the result of link.Evaluate into findings for every
-// interface. A rule whose input is unknown (speed that the driver does not
+// interface, also when LINK_EXPECT no longer names it, so that removing the
+// expectation closes a problem that is still open. A rule whose input is unknown (speed that the driver does not
 // report, no duplex) gives no verdict instead of a false "back to normal".
 func LinkFindings(ifaces []link.Interface, warnings []string) []Finding {
 	has := map[string]bool{}
@@ -135,12 +136,12 @@ func LinkFindings(ifaces []link.Interface, warnings []string) []Finding {
 		if i.ExpectedMbps != nil {
 			expected = *i.ExpectedMbps
 		}
-		if p := has["link_degraded:"+i.Name]; p || (i.SpeedMbps != nil && expected > 0) {
+		if p := has["link_degraded:"+i.Name]; p || i.SpeedMbps != nil {
 			out = append(out, Finding{Rule: RuleLinkDegrade, Subject: i.Name, Problem: p, Level: LevelWarning,
 				Message:  fmt.Sprintf("Link %s: %s, expected %d Mb/s", i.Name, speed, expected),
 				Recovery: fmt.Sprintf("Link %s: back to normal (%s)", i.Name, speed)})
 		}
-		if p := has["link_down:"+i.Name]; p || (expected > 0 && i.Operstate == "up") {
+		if p := has["link_down:"+i.Name]; p || i.Operstate == "up" {
 			out = append(out, Finding{Rule: RuleLinkDown, Subject: i.Name, Problem: p, Level: LevelWarning,
 				Message:  fmt.Sprintf("Link %s: no carrier (cable unplugged or port off)", i.Name),
 				Recovery: fmt.Sprintf("Link %s: back to normal (carrier present, %s)", i.Name, speed)})
