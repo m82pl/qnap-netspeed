@@ -11,10 +11,10 @@
 <h1>Net Speed</h1>
 {{if eq .Lang "pl"}}
 <p class="ok">Usługa qnap-netspeed działa.</p>
-<p>To jest szkielet paczki (faza F1): instalacja, autostart i harmonogram. Testy prędkości i pełne GUI pojawią się w kolejnych wersjach.</p>
+<p>Pełne GUI pojawi się w fazie F5. Już teraz działa API REST pod <code>/api/v1</code> (token administratora: <code>qnetspeed web-token</code>) oraz serwer iperf3 do testów z innych urządzeń.</p>
 {{else}}
 <p class="ok">The qnap-netspeed service is running.</p>
-<p>This is the package skeleton (phase F1): install, autostart and schedule. Speed tests and the full GUI arrive in later versions.</p>
+<p>The full GUI arrives in phase F5. The REST API under <code>/api/v1</code> already works (administrator token: <code>qnetspeed web-token</code>), and so does the iperf3 server for tests from other devices.</p>
 {{end}}
 <dl>
 <dt>Version</dt><dd>{{.Version}}</dd>

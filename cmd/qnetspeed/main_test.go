@@ -232,10 +232,13 @@ func TestServeShutdown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	a, _, _ := testApp(t)
+	srv := web.New(web.Options{Info: web.Info{Version: "x", Started: time.Now()}, Backend: &backend{a: a}, Token: "t"})
+	defer srv.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
-		done <- serve(ctx, ln, web.Handler(web.Info{Version: "x", Started: time.Now()}))
+		done <- serve(ctx, ln, srv.Handler())
 	}()
 	resp, err := http.Get("http://" + ln.Addr().String() + "/api/v1/status")
 	if err != nil {

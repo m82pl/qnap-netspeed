@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -332,4 +333,58 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 		d.Close()
 	}
 	return nil
+}
+
+// LoadForEdit reads path for modification; a missing file starts from the
+// default file, and a missing default from an empty configuration.
+func LoadForEdit(path, defaultPath string) (*Config, []Issue, error) {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		data, err = os.ReadFile(defaultPath)
+		if errors.Is(err, fs.ErrNotExist) {
+			data, err = nil, nil
+		}
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	c, issues := Parse(data)
+	return c, issues, nil
+}
+
+// ValidateValue checks one value for a known key, with the same rules as Set
+// but without the key name in the message (the API reports it per field).
+func ValidateValue(name, value string) error {
+	k, ok := keyIndex[name]
+	if !ok {
+		return fmt.Errorf("unknown key")
+	}
+	if err := checkChars(value); err != nil {
+		return err
+	}
+	return k.Validate(value)
+}
+
+// restartKeys are read once, when the service starts; a change needs a restart.
+var restartKeys = map[string]bool{
+	"WEB_PORT": true, "WEB_BIND": true, "IPERF_PORT": true, "LAN_BIND": true,
+	"LAN_SERVER_ENABLE": true, "CRON_SCHEDULE": true,
+}
+
+// RestartRequired reports whether a change of key applies only after the service restarts.
+func RestartRequired(name string) bool { return restartKeys[name] }
+
+// KeyInfo describes one key for the API.
+type KeyInfo struct {
+	Name    string
+	Default string
+}
+
+// KeyList returns every known key with its default, in spec order.
+func KeyList() []KeyInfo {
+	out := make([]KeyInfo, len(Keys))
+	for i, k := range Keys {
+		out[i] = KeyInfo{k.Name, k.Default}
+	}
+	return out
 }

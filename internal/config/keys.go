@@ -264,3 +264,13 @@ func ValidIface(v string) error {
 	}
 	return nil
 }
+
+var bitrateRe = regexp.MustCompile(`^[0-9]{1,6}[KkMmGg]?$`)
+
+// ValidBitrate checks the UDP bitrate given to iperf3 -b, e.g. 100M or 1G.
+func ValidBitrate(v string) error {
+	if !bitrateRe.MatchString(v) {
+		return fmt.Errorf("%q: expected e.g. 100M or 1G", v)
+	}
+	return nil
+}

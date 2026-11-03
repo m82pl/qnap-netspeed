@@ -251,3 +251,62 @@ func TestShow(t *testing.T) {
 		t.Errorf("Show() has %d lines, want %d", n, len(Keys))
 	}
 }
+
+func TestValidateValueAndRestartKeys(t *testing.T) {
+	if err := ValidateValue("WEB_PORT", "8899"); err != nil {
+		t.Errorf("good value: %v", err)
+	}
+	for _, c := range []struct{ k, v, want string }{
+		{"WEB_PORT", "8080", "QTS"}, {"NOPE", "1", "unknown key"}, {"WAN_IFACES", "eth0$x", ""}, {"CRON_SCHEDULE", "* * * * * x", "5 fields"},
+	} {
+		err := ValidateValue(c.k, c.v)
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s=%q: %v", c.k, c.v, err)
+		}
+		if err != nil && strings.HasPrefix(err.Error(), c.k) {
+			t.Errorf("message repeats the key: %v", err)
+		}
+	}
+	for k, want := range map[string]bool{"WEB_PORT": true, "IPERF_PORT": true, "CRON_SCHEDULE": true, "LAN_SERVER_ENABLE": true,
+		"MIN_WAN_DL_MBPS": false, "WEB_PUBLIC_READ": false, "LANG": false} {
+		if RestartRequired(k) != want {
+			t.Errorf("RestartRequired(%s) = %v", k, !want)
+		}
+	}
+	kl := KeyList()
+	if len(kl) != len(Keys) || kl[0].Name != "LANG" || kl[0].Default != "en" {
+		t.Errorf("KeyList = %v", kl[:2])
+	}
+}
+
+func TestLoadForEdit(t *testing.T) {
+	dir := t.TempDir()
+	conf, def := filepath.Join(dir, "a.conf"), filepath.Join(dir, "a.conf.default")
+	c, _, err := LoadForEdit(conf, def)
+	if err != nil || string(c.Bytes()) != "" {
+		t.Fatalf("nothing exists: %q %v", c.Bytes(), err)
+	}
+	os.WriteFile(def, []byte("# default\nLANG=pl\n"), 0o644)
+	c, _, err = LoadForEdit(conf, def)
+	if err != nil || c.Get("LANG") != "pl" {
+		t.Fatalf("default file: %v", err)
+	}
+	os.WriteFile(conf, []byte("LANG=en\n"), 0o644)
+	c, _, err = LoadForEdit(conf, def)
+	if err != nil || c.Get("LANG") != "en" {
+		t.Fatalf("config file wins: %v", err)
+	}
+}
+
+func TestValidBitrate(t *testing.T) {
+	for _, ok := range []string{"100M", "1G", "500", "64k"} {
+		if ValidBitrate(ok) != nil {
+			t.Errorf("%q rejected", ok)
+		}
+	}
+	for _, bad := range []string{"", "1G;x", "-1", "1T", "fast", "1234567M"} {
+		if ValidBitrate(bad) == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+}

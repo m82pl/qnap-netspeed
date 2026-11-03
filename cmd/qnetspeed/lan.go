@@ -16,8 +16,6 @@ import (
 
 const lanUsage = "Usage: qnetspeed lan-test HOST [--time N] [--parallel N] [--iface IF] [--udp [--bitrate B]] [--bidir] [--json] [--quiet] [--wait N]\n"
 
-var bitrateRe = regexp.MustCompile(`^[0-9]{1,6}[KkMmGg]?$`)
-
 // lanTest runs iperf3 from the NAS against another host (spec pkt 5.2.2).
 func (a *app) lanTest(args []string) int {
 	fset := flag.NewFlagSet("lan-test", flag.ContinueOnError)
@@ -53,7 +51,7 @@ func (a *app) lanTest(args []string) int {
 			return exitUsage
 		}
 	}
-	if !bitrateRe.MatchString(bitrate) {
+	if config.ValidBitrate(bitrate) != nil {
 		fmt.Fprintf(a.stderr, "qnetspeed lan-test: --bitrate %q: expected e.g. 100M or 1G\n", bitrate)
 		return exitUsage
 	}

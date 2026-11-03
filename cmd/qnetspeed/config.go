@@ -85,18 +85,11 @@ func (a *app) configSet(key, value string) int {
 		return exitUsage
 	}
 	path := a.layout.ConfigFile()
-	data, err := os.ReadFile(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		data, err = os.ReadFile(a.layout.DefaultConfig())
-		if errors.Is(err, fs.ErrNotExist) {
-			data, err = nil, nil
-		}
-	}
+	c, issues, err := config.LoadForEdit(path, a.layout.DefaultConfig())
 	if err != nil {
 		fmt.Fprintf(a.stderr, "qnetspeed: %v\n", err)
 		return exitConfig
 	}
-	c, issues := config.Parse(data)
 	if err := c.Set(key, value); err != nil {
 		fmt.Fprintf(a.stderr, "qnetspeed config: %v\n", err)
 		return exitConfig

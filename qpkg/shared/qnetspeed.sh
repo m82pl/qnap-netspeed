@@ -143,7 +143,9 @@ do_start() {
 		exit 1
 	fi
 	if ! web_port=$("$BIN" config get WEB_PORT) ||
-		! schedule=$("$BIN" config get CRON_SCHEDULE); then
+		! schedule=$("$BIN" config get CRON_SCHEDULE) ||
+		! lan_server=$("$BIN" config get LAN_SERVER_ENABLE) ||
+		! iperf_port=$("$BIN" config get IPERF_PORT); then
 		log 2 "Start failed: cannot read configuration"
 		exit 1
 	fi
@@ -157,10 +159,13 @@ do_start() {
 	fi
 	rm -f "$PIDFILE"
 
-	# Tylko WEB_PORT: serwer iperf3 (IPERF_PORT) uruchamia demon dopiero od F4 i wtedy
-	# dojdzie tu kontrola IPERF_PORT przy LAN_SERVER_ENABLE=1.
 	if port_listening "$web_port"; then
 		log 2 "Start failed: port $web_port is already in use by another program"
+		exit 1
+	fi
+	# Serwer iperf3 demona (spec pkt 8.2, krok 6): zajęty IPERF_PORT to jasny błąd, nie pętla restartów.
+	if [ "$lan_server" = 1 ] && port_listening "$iperf_port"; then
+		log 2 "Start failed: iperf3 port $iperf_port (IPERF_PORT) is already in use by another program; change IPERF_PORT or set LAN_SERVER_ENABLE=0"
 		exit 1
 	fi
 

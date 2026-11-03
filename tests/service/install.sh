@@ -29,6 +29,14 @@ step() { echo "== $*"; }
 listening() {
 	netstat -tln | awk -v p=":$1" '$1 ~ /^tcp/ && substr($4, length($4) - length(p) + 1) == p { f = 1 } END { exit !f }'
 }
+wait_listening() { # wait_listening PORT: up to 5 s (iperf3 is started by the daemon right after the web port)
+	i=0
+	while ! listening "$1" && [ $i -lt 50 ]; do
+		usleep 100000
+		i=$((i + 1))
+	done
+	listening "$1"
+}
 cfg() { /sbin/getcfg qnap-netspeed "$1" -f $CONF; }
 install_qpkg() {
 	# BusyBox 1.36 szuka pliku z `. qpkg.cfg` tylko w PATH; ash z QTS 1.24 także w bieżącym katalogu.
@@ -55,6 +63,8 @@ check "licenses installed" test -f $ROOT/licenses/librespeed-cli/LICENSE
 check "icons installed" test -f /home/httpd/RSS/images/qnap-netspeed.gif
 check "uninstall script" test -x $ROOT/.uninstall.sh
 check "service started" listening 8888
+check "iperf3 server listening on 5288 (real static iperf3)" wait_listening 5288
+check "admin token is 0600" sh -c "ls -l $ROOT/data/web.token | grep -q '^-rw-------'"
 check "status API" sh -c 'wget -qO- http://127.0.0.1:8888/api/v1/status | grep -q "\"name\":\"qnap-netspeed\""'
 check "cron line" sh -c "[ \"\$(grep -c ' # qnap-netspeed\$' $CRONTAB)\" = 1 ]"
 check "qnetspeed in PATH" sh -c 'qnetspeed version | grep -q "^qnetspeed "'
@@ -70,6 +80,7 @@ install_qpkg
 check "config kept" grep -qx 'LANG=pl' $ROOT/etc/qnetspeed.conf
 check "data kept" grep -q kept $ROOT/data/wan.jsonl
 check "service listening after update" listening 8888
+check "iperf3 server listening again after the update" wait_listening 5288
 check "daemon restarted by the update" test "$(cat /var/run/qnetspeed.pid)" != "$pid1"
 check "Polish page after update" sh -c 'wget -qO- http://127.0.0.1:8888/ | grep -q "Usługa qnap-netspeed działa"'
 check "still one cron line" sh -c "[ \"\$(grep -c ' # qnap-netspeed\$' $CRONTAB)\" = 1 ]"
@@ -84,6 +95,7 @@ if [ "$code" = 0 ]; then ok ".uninstall.sh (exit 0)"; else
 fi
 check_not "process gone" sh -c "[ -d /proc/$pid ] && ! grep -q '^State:.*Z' /proc/$pid/status"
 check_not "not listening" listening 8888
+check_not "iperf3 server gone" listening 5288
 check_not "package dir gone" test -e $ROOT
 check_not "init.d link gone" test -e /etc/init.d/qnetspeed.sh
 check "no cron line" sh -c "[ \"\$(grep -c ' # qnap-netspeed\$' $CRONTAB)\" = 0 ]"

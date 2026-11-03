@@ -3,7 +3,8 @@
 //
 // Phase F1 (walking skeleton) provides version, config and daemon (status page
 // on WEB_PORT); F2 the measurement commands; F3 the scheduled run (cron) and
-// the notifications to QTS System Logs.
+// the notifications to QTS System Logs; F4 the REST API, the browser speed test
+// and the supervised iperf3 server (lan-server, web-token).
 package main
 
 import (
@@ -47,7 +48,10 @@ Commands:
                           Recent results
   notify test [--level N] Write a test entry to QTS System Logs
   notify status [--json]  Problems reported to System Logs and not closed yet
-  daemon                  Run the web server (started by the service script)
+  lan-server start|stop|status [--json]
+                          Control the iperf3 server of the daemon (this NAS as a test target)
+  web-token               Show the administrator token of the web interface
+  daemon                  Run the web server and the iperf3 server (started by the service script)
   cron                    Scheduled run (started by crond): link, WAN, LAN tests, notifications
   help                    Show this help
 `
@@ -99,6 +103,10 @@ func (a *app) run(args []string) int {
 		return a.history(args[1:])
 	case "notify":
 		return a.notifyCmd(args[1:])
+	case "lan-server":
+		return a.lanServerCmd(args[1:])
+	case "web-token":
+		return a.webToken(args[1:])
 	case "daemon":
 		if len(args) > 1 {
 			fmt.Fprintf(a.stderr, "qnetspeed daemon: unexpected argument %q\n", args[1])
