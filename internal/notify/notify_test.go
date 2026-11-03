@@ -342,8 +342,8 @@ func TestLinkFindings(t *testing.T) {
 	if g := f["link_down:eth2"]; !g.Problem {
 		t.Errorf("%+v", g)
 	}
-	if _, ok := f["link_degraded:eth1"]; ok {
-		t.Error("no expectation, no rule")
+	if g, ok := f["link_degraded:eth1"]; !ok || g.Problem {
+		t.Errorf("without an expectation the rule is still evaluated (so removing LINK_EXPECT closes an open problem): %+v", g)
 	}
 	if _, ok := f["link_degraded:eth2"]; ok {
 		t.Error("unknown speed gives no verdict (no false recovery)")
@@ -360,5 +360,18 @@ func TestLinkFindings(t *testing.T) {
 	f = byKey(LinkFindings(ifaces, nil))
 	if g := f["link_degraded:eth0"]; g.Problem || g.Recovery != "Link eth0: back to normal (2500 Mb/s)" {
 		t.Errorf("%+v", g)
+	}
+}
+
+// LINK_EXPECT removed while link_degraded is open: the next run closes it.
+func TestRemovingLinkExpectClosesOpenProblem(t *testing.T) {
+	st, log := newState(), &recorder{}
+	ifaces := []link.Interface{{Name: "eth0", Kind: link.KindPhysical, Operstate: "up", SpeedMbps: ip(1000), ExpectedMbps: ip(2500), Duplex: "full"}}
+	Apply(st, LinkFindings(ifaces, []string{"link_degraded:eth0"}), Options{Now: t0, Repeat: time.Hour}, log)
+	ifaces[0].ExpectedMbps = nil
+	log.got = nil
+	Apply(st, LinkFindings(ifaces, nil), Options{Now: t0.Add(time.Hour), Repeat: time.Hour}, log)
+	if len(log.got) != 1 || log.got[0] != (entry{0, "Link eth0: back to normal (1000 Mb/s)"}) || len(st.Notify) != 0 {
+		t.Errorf("%v %v", log.got, st.Notify)
 	}
 }
