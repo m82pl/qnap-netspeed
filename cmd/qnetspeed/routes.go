@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/m82pl/qnap-netspeed/internal/config"
 	"github.com/m82pl/qnap-netspeed/internal/link"
 	"github.com/m82pl/qnap-netspeed/internal/netroute"
 )
@@ -44,24 +45,10 @@ func (a *app) routes(args []string) int {
 		a.printIssues(issues)
 		return code
 	}
-	sys := a.sys()
-	names := strings.Fields(c.Get("WAN_IFACES"))
-	if len(names) == 0 {
-		all, err := link.Read(sys.sysfs)
-		if err != nil {
-			fmt.Fprintf(a.stderr, "qnetspeed routes: %v\n", err)
-			return exitTestError
-		}
-		for _, i := range all {
-			if i.Name != "lo" && (showAll || hasPhysicalPort(sys.sysfs, i.Name)) {
-				names = append(names, i.Name)
-			}
-		}
-	}
-	probe := net.ParseIP(c.Get("WAN_PROBE_IP"))
-	var rows []routeRow
-	for _, n := range names {
-		rows = append(rows, routeRowFor(netroute.Inspect(sys.net, n, probe)))
+	rows, err := a.routeRows(c, showAll)
+	if err != nil {
+		fmt.Fprintf(a.stderr, "qnetspeed routes: %v\n", err)
+		return exitTestError
 	}
 	if asJSON {
 		b, _ := json.Marshal(rows)
@@ -88,6 +75,30 @@ func (a *app) routes(args []string) int {
 		}
 	}
 	return exitOK
+}
+
+// routeRows inspects WAN_IFACES, or every physical port when it is empty
+// (all: every interface but lo).
+func (a *app) routeRows(c *config.Config, showAll bool) ([]routeRow, error) {
+	sys := a.sys()
+	names := strings.Fields(c.Get("WAN_IFACES"))
+	if len(names) == 0 {
+		all, err := link.Read(sys.sysfs)
+		if err != nil {
+			return nil, err
+		}
+		for _, i := range all {
+			if i.Name != "lo" && (showAll || hasPhysicalPort(sys.sysfs, i.Name)) {
+				names = append(names, i.Name)
+			}
+		}
+	}
+	probe := net.ParseIP(c.Get("WAN_PROBE_IP"))
+	rows := []routeRow{}
+	for _, n := range names {
+		rows = append(rows, routeRowFor(netroute.Inspect(sys.net, n, probe)))
+	}
+	return rows, nil
 }
 
 func routeRowFor(k netroute.Check) routeRow {

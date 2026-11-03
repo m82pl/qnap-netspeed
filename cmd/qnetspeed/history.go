@@ -1,11 +1,9 @@
 package main
 
 import (
-	"encoding/csv"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -16,20 +14,7 @@ import (
 const historyUsage = "Usage: qnetspeed history [--type wan|lan|link] [--last N] [--since 7d] [--iface IF] [--json|--csv]\n"
 
 // row is the union of the fields history prints from wan.jsonl, lan.jsonl and link.jsonl.
-type row struct {
-	Timestamp time.Time              `json:"timestamp"`
-	Type      string                 `json:"type"`
-	Trigger   string                 `json:"trigger"`
-	Status    string                 `json:"status"`
-	Interface string                 `json:"interface"`
-	Target    string                 `json:"target"`
-	ClientIP  string                 `json:"client_ip"`
-	PublicIP  *string                `json:"public_ip"`
-	Server    *struct{ Name string } `json:"server"`
-	Results   map[string]*float64    `json:"results"`
-	Warnings  []string               `json:"warnings"`
-	Error     *string                `json:"error"`
-}
+type row = history.Row
 
 // history prints the most recent results (spec pkt 6). Reading needs no root.
 func (a *app) history(args []string) int {
@@ -90,13 +75,7 @@ func (a *app) history(args []string) int {
 		fmt.Fprintf(a.stdout, "%s\n", b)
 		return exitOK
 	}
-	rows := make([]row, 0, len(recs))
-	for _, r := range recs {
-		var x row
-		if json.Unmarshal(r.Raw, &x) == nil {
-			rows = append(rows, x)
-		}
-	}
+	rows := history.Rows(recs)
 	if asCSV {
 		return a.historyCSV(typ, rows)
 	}
@@ -133,39 +112,7 @@ func (a *app) history(args []string) int {
 }
 
 func (a *app) historyCSV(typ string, rows []row) int {
-	w := csv.NewWriter(a.stdout)
-	switch typ {
-	case "wan":
-		w.Write([]string{"timestamp", "interface", "trigger", "status", "download_mbps", "upload_mbps", "ping_ms", "jitter_ms", "server", "public_ip", "warnings", "error"})
-		for _, r := range rows {
-			server, ip := "", ""
-			if r.Server != nil {
-				server = r.Server.Name
-			}
-			if r.PublicIP != nil {
-				ip = *r.PublicIP
-			}
-			w.Write([]string{ts(r.Timestamp), r.Interface, r.Trigger, r.Status, num(r.Results["download_mbps"], -1), num(r.Results["upload_mbps"], -1),
-				num(r.Results["ping_ms"], -1), num(r.Results["jitter_ms"], -1), server, ip, strings.Join(r.Warnings, " "), deref(r.Error)})
-		}
-	case "lan":
-		w.Write([]string{"timestamp", "type", "target", "interface", "trigger", "status", "upload_mbps", "download_mbps", "retransmits_upload", "jitter_ms", "lost_percent", "warnings", "error"})
-		for _, r := range rows {
-			target := r.Target
-			if target == "" {
-				target = r.ClientIP
-			}
-			w.Write([]string{ts(r.Timestamp), r.Type, target, r.Interface, r.Trigger, r.Status, num(r.Results["upload_mbps"], -1), num(r.Results["download_mbps"], -1),
-				num(r.Results["retransmits_upload"], -1), num(r.Results["jitter_ms"], -1), num(r.Results["lost_percent"], -1), strings.Join(r.Warnings, " "), deref(r.Error)})
-		}
-	default:
-		w.Write([]string{"timestamp", "warnings"})
-		for _, r := range rows {
-			w.Write([]string{ts(r.Timestamp), strings.Join(r.Warnings, " ")})
-		}
-	}
-	w.Flush()
-	if w.Error() != nil {
+	if history.WriteCSV(a.stdout, typ, rows) != nil {
 		return exitTestError
 	}
 	return exitOK
@@ -175,15 +122,7 @@ func ts(t time.Time) string        { return t.UTC().Format(time.RFC3339) }
 func localTime(t time.Time) string { return t.Local().Format("2006-01-02 15:04") }
 
 // num formats an optional number; prec < 0 means the shortest exact form (CSV).
-func num(v *float64, prec int) string {
-	if v == nil {
-		return "-"
-	}
-	if prec < 0 {
-		return strconv.FormatFloat(*v, 'f', -1, 64)
-	}
-	return strconv.FormatFloat(*v, 'f', prec, 64)
-}
+func num(v *float64, prec int) string { return history.Num(v, prec) }
 
 func notes(r row) string {
 	var n []string
@@ -195,17 +134,4 @@ func notes(r row) string {
 }
 
 // parseSince reads 90m, 12h, 7d or 2w.
-func parseSince(s string) (time.Duration, error) {
-	if len(s) < 2 {
-		return 0, fmt.Errorf("expected e.g. 90m, 12h, 7d, 2w")
-	}
-	n, err := strconv.Atoi(s[:len(s)-1])
-	if err != nil || n < 1 {
-		return 0, fmt.Errorf("expected e.g. 90m, 12h, 7d, 2w")
-	}
-	unit := map[byte]time.Duration{'m': time.Minute, 'h': time.Hour, 'd': 24 * time.Hour, 'w': 7 * 24 * time.Hour}[s[len(s)-1]]
-	if unit == 0 {
-		return 0, fmt.Errorf("unit must be m, h, d or w")
-	}
-	return time.Duration(n) * unit, nil
-}
+func parseSince(s string) (time.Duration, error) { return history.ParseSince(s) }

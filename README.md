@@ -3,8 +3,9 @@
 Natywna paczka QPKG dla QNAP NAS: testy prędkości WAN (librespeed-cli) i LAN (iperf3),
 monitorowanie łączy fizycznych, harmonogram, powiadomienia w System Logs i GUI na porcie 8888.
 
-Projekt w budowie, wersja docelowa 1.0.0. Stan: faza F1 (walking skeleton: paczka instaluje się,
-startuje i ma wpis crona; testów prędkości jeszcze nie ma), zob. [docs/F1.md](docs/F1.md)
+Projekt w budowie, wersja docelowa 1.0.0. Stan: faza F4 (demon z REST API, token administratora,
+nadzorowany serwer iperf3 i punkty końcowe testu z przeglądarki; strony GUI dojdą w F5), zob.
+[docs/F4.md](docs/F4.md), [docs/F3.md](docs/F3.md), [docs/F2.md](docs/F2.md), [docs/F1.md](docs/F1.md)
 i [docs/F0.md](docs/F0.md).
 
 ## Instalacja (wersja testowa, paczka niepodpisana)

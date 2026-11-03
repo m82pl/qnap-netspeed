@@ -115,7 +115,8 @@ jobs:
           if-no-files-found: error
 
   # Prawdziwy iperf3 3.22 (statyczny, z jobu binaries) na loopbacku: przechwycenie `iperf3 -J`
-  # (TCP, --bidir, UDP, błąd), `qnetspeed lan-test` oraz `qnetspeed cron` z atrapą /sbin/log_tool.
+  # (TCP, --bidir, UDP, błąd), `qnetspeed lan-test`, `qnetspeed cron` z atrapą /sbin/log_tool oraz
+  # prawdziwy demon (REST API, nadzór iperf3, test z przeglądarki).
   integration:
     needs: [binaries]
     runs-on: ubuntu-24.04
@@ -125,7 +126,7 @@ jobs:
         with:
           name: bin-x86_64
           path: bin
-      - name: Integration test (iperf3 loopback, lan-test, cron)
+      - name: Integration test (iperf3 loopback, lan-test, cron, daemon + API)
         run: |
           chmod +x bin/qnetspeed bin/iperf3
           sudo env CI=true sh scripts/integration-test.sh bin captures

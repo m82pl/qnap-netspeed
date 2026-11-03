@@ -1,0 +1,6 @@
+#!/bin/sh
+# Atrapa iperf3 dla testu skryptu usługi: demon tylko ją uruchamia i nadzoruje.
+# Bez exec, żeby /proc/<pid>/cmdline zostało "…/iperf3 -s -p …" (po exec byłoby "sleep").
+echo "fake iperf3 $*"
+sleep 3600 &
+wait

@@ -71,6 +71,22 @@ check "still one cron line" sh -c "[ \"\$(grep -c ' # qnap-netspeed\$' $CRONTAB)
 check_not "crontab not reloaded again" test -e $SPOOL
 expect_code 0 "status while running" $SVC status
 
+iperf_pids() { grep -l '[i]perf3' /proc/[0-9]*/cmdline 2>/dev/null | sed 's|/proc/\([0-9]*\)/cmdline|\1|'; }
+
+step "iperf3 server under the daemon (F4)"
+check "iperf3 -s is running" sh -c "grep -q '[i]perf3' /proc/[0-9]*/cmdline"
+check "status API: lan_server running" sh -c 'wget -qO- http://127.0.0.1:8888/api/v1/status | grep -q "\"lan_server\":{\"state\":\"running\",\"port\":5288"'
+check "iperf3 output in the daemon log" grep -q 'iperf3: fake iperf3 -s -p 5288' $ROOT/data/qnetspeed.log
+expect_code 0 "lan-server status" $ROOT/bin/qnetspeed lan-server status
+check "token file is 0600" sh -c "ls -l $ROOT/data/web.token | grep -q '^-rw-------'"
+check "web-token prints it" sh -c "[ \"\$($ROOT/bin/qnetspeed web-token)\" = \"\$(cat $ROOT/data/web.token)\" ]"
+check "admin endpoint refuses without a token" sh -c 'wget -qO- --post-data="{}" http://127.0.0.1:8888/api/v1/lan-server 2>&1 | grep -q "401"'
+expect_code 0 "lan-server stop" $ROOT/bin/qnetspeed lan-server stop
+check_not "iperf3 -s stopped" sh -c "grep -q '[i]perf3' /proc/[0-9]*/cmdline"
+expect_code 1 "lan-server status when stopped" $ROOT/bin/qnetspeed lan-server status
+expect_code 0 "lan-server start" $ROOT/bin/qnetspeed lan-server start
+check "iperf3 -s is back" sh -c "grep -q '[i]perf3' /proc/[0-9]*/cmdline"
+
 step "cron entry runs (F3)"
 # The chroot has no internet and no /sys: no WAN test, an empty list of interfaces.
 mkdir -p /sys/class/net
@@ -102,8 +118,10 @@ expect_code 0 "restart back to 8888" $SVC restart
 
 step "stop"
 pid=$(running_pid)
+ipids=$(iperf_pids)
 expect_code 0 "stop" $SVC stop
 check_not "process gone" is_alive "$pid"
+for ip in $ipids; do check_not "iperf3 child $ip gone" is_alive "$ip"; done
 check_not "pid file removed" test -e /var/run/qnetspeed.pid
 check_not "not listening" listening 8888
 check "no cron line" sh -c "[ \"\$(grep -c ' # qnap-netspeed\$' $CRONTAB)\" = 0 ]"
@@ -137,10 +155,11 @@ check "no cron line" sh -c "[ \"\$(grep -c ' # qnap-netspeed\$' $CRONTAB)\" = 0 
 kill $ncpid
 wait $ncpid 2>/dev/null
 
-step "port 5288 (IPERF_PORT) taken by another program does not block start (no iperf3 server before F4)"
+step "port 5288 (IPERF_PORT) taken by another program (F4)"
 mkdir -p /t/other5288/etc
 echo 'WEB_PORT=5288' >/t/other5288/etc/qnetspeed.conf
 echo 'IPERF_PORT=5289' >>/t/other5288/etc/qnetspeed.conf
+echo 'LAN_SERVER_ENABLE=0' >>/t/other5288/etc/qnetspeed.conf
 QNETSPEED_ROOT=/t/other5288 $ROOT/bin/qnetspeed daemon >/dev/null 2>&1 &
 otherpid=$!
 i=0
@@ -149,9 +168,19 @@ while ! listening 5288 && [ $i -lt 50 ]; do
 	i=$((i + 1))
 done
 check "5288 is taken" listening 5288
-expect_code 0 "start with 5288 taken" $SVC start
+expect_code 1 "start with 5288 taken" $SVC start
+check "System Logs: port 5288" grep -q '^-t 2 -a \[qnap-netspeed\] Start failed: iperf3 port 5288 (IPERF_PORT) is already in use' $LOGTOOL
+check_not "not listening on 8888" listening 8888
+check "no cron line" sh -c "[ \"\$(grep -c ' # qnap-netspeed\$' $CRONTAB)\" = 0 ]"
+check_not "no pid file" test -e /var/run/qnetspeed.pid
+# With the iperf3 server switched off the port does not matter.
+$ROOT/bin/qnetspeed config set LAN_SERVER_ENABLE 0 >/dev/null
+expect_code 0 "start with 5288 taken and LAN_SERVER_ENABLE=0" $SVC start
 check "listening on 8888" listening 8888
+check_not "no iperf3 started" sh -c "grep -q '[i]perf3' /proc/[0-9]*/cmdline"
+expect_code 1 "lan-server start refused while LAN_SERVER_ENABLE=0" $ROOT/bin/qnetspeed lan-server start
 expect_code 0 "stop" $SVC stop
+$ROOT/bin/qnetspeed config set LAN_SERVER_ENABLE 1 >/dev/null
 kill $otherpid
 wait $otherpid 2>/dev/null
 

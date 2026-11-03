@@ -76,7 +76,8 @@ if [ -z "$qpkg" ]; then
 	cp "$repo/qpkg/shared/qnetspeed.sh" "$R$root/qnetspeed.sh"
 	cp -R "$repo/qpkg/shared/etc/." "$R$root/etc/"
 	cp "$bin" "$R$root/bin/qnetspeed"
-	chmod 0755 "$R$root/qnetspeed.sh" "$R$root/bin/qnetspeed"
+	cp "$repo/tests/service/fakes/iperf3" "$R$root/bin/iperf3"
+	chmod 0755 "$R$root/qnetspeed.sh" "$R$root/bin/qnetspeed" "$R$root/bin/iperf3"
 	ln -s "$root/qnetspeed.sh" "$R/etc/init.d/qnetspeed.sh"
 	cat >"$R/etc/config/qpkg.conf" <<CONF
 [qnap-netspeed]

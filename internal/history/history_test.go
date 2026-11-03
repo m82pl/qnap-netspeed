@@ -182,3 +182,42 @@ func TestFilesAreWorldReadable(t *testing.T) { // `qnetspeed history` must work 
 	}
 	check("after rotate")
 }
+
+func TestWriteCSV(t *testing.T) {
+	recs := []Record{
+		{Raw: []byte(`{"timestamp":"2026-11-03T10:00:00Z","type":"WAN","interface":"eth0","trigger":"cron","status":"ok","results":{"download_mbps":94.5,"upload_mbps":20},"server":{"Name":"X, Y"},"warnings":["route_mismatch","same_public_ip"],"error":null}`)},
+		{Raw: []byte(`{"timestamp":"2026-11-03T11:00:00Z","type":"WAN","interface":"eth0","trigger":"web","status":"error","results":{},"error":"boom"}`)},
+		{Raw: []byte(`not json`)},
+	}
+	rows := Rows(recs)
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d", len(rows))
+	}
+	var b strings.Builder
+	if err := WriteCSV(&b, "wan", rows); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(b.String()), "\n")
+	if len(lines) != 3 || lines[1] != `2026-11-03T10:00:00Z,eth0,cron,ok,94.5,20,-,-,"X, Y",,route_mismatch same_public_ip,` ||
+		lines[2] != `2026-11-03T11:00:00Z,eth0,web,error,-,-,-,-,,,,boom` {
+		t.Errorf("csv:\n%s", b.String())
+	}
+	b.Reset()
+	WriteCSV(&b, "link", rows)
+	if !strings.HasPrefix(b.String(), "timestamp,warnings\n") {
+		t.Errorf("link csv: %s", b.String())
+	}
+}
+
+func TestParseSince(t *testing.T) {
+	for in, want := range map[string]time.Duration{"90m": 90 * time.Minute, "12h": 12 * time.Hour, "7d": 7 * 24 * time.Hour, "2w": 14 * 24 * time.Hour} {
+		if got, err := ParseSince(in); err != nil || got != want {
+			t.Errorf("%s: %v %v", in, got, err)
+		}
+	}
+	for _, bad := range []string{"", "d", "0d", "-1d", "7y", "1.5h", "x7d"} {
+		if _, err := ParseSince(bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+}
